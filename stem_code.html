@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScheduleSync Pro</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #50E3C2;
+            --work-color: #ff9f43;
+            --personal-color: #48dbfb;
+            --urgent-color: #ee5253;
+            --background-color: #f0f2f5;
+            --card-background: #ffffff;
+            --text-color: #333;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode {
+            --background-color: #1a1a1a;
+            --card-background: #2d2d2d;
+            --text-color: #f0f0f0;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        @media (max-width: 850px) { .container { grid-template-columns: 1fr; } }
+
+        .sidebar, .main-content {
+            padding: 25px;
+            background-color: var(--card-background);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        input, select, button {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            width: 100%;
+            box-sizing: border-box;
+            background: var(--card-background);
+            color: var(--text-color);
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            border: none;
+            font-weight: bold;
+        }
+
+        #countdownDisplay {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 10px 0;
+            font-family: monospace;
+        }
+
+        .progress-container { background: #eee; border-radius: 10px; height: 10px; margin: 10px 0; overflow: hidden; }
+        #progressBar { background: var(--secondary-color); height: 100%; width: 0%; transition: width 0.3s; }
+
+        .filter-bar { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .filter-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid #ddd; background: var(--card-background); color: var(--text-color); cursor: pointer; width: auto; }
+        .filter-btn.active { background: var(--primary-color); color: white; }
+
+        .reminder-item {
+            padding: 15px;
+            margin-bottom: 12px;
+            background: var(--card-background);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 8px;
+            border-left: 6px solid #ccc;
+            box-shadow: var(--shadow);
+        }
+
+        .category-work { border-left-color: var(--work-color); }
+        .category-personal { border-left-color: var(--personal-color); }
+        .category-urgent { border-left-color: var(--urgent-color); }
+
+        .delete-btn { background: #ff6b6b; color: white; border: none; padding: 8px 12px; border-radius: 6px; width: auto; }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 15px; }
+        .calendar-day { padding: 8px; background: rgba(0,0,0,0.05); text-align: center; border-radius: 4px; font-size: 0.8rem; }
+        .today { background: var(--primary-color) !important; color: white; }
+        .has-event { background: var(--secondary-color) !important; color: #333; font-weight: bold; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-content {
+            background-color: var(--card-background);
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .top-nav { position: fixed; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 100; }
+        .nav-btn { cursor: pointer; font-size: 1.2rem; background: var(--card-background); border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; }
+        .clear-btn { background: transparent; color: #ff6b6b; border: 1px solid #ff6b6b; margin-top: 20px; }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+        }
+    </style>
+</head>
+<body onclick="unlockAudio()">
+
+    <div class="top-nav">
+        <button class="nav-btn" onclick="requestNotifPermission()" title="Enable Notifications">🔔</button>
+        <button class="nav-btn" onclick="openInstructions()">❓</button>
+        <button class="nav-btn" onclick="toggleDarkMode()">🌓</button>
+    </div>
+
+    <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2Z" fill="var(--primary-color)"/>
+            <path d="M13 7H11V13H17V11H13V7Z" fill="var(--secondary-color)"/>
+            <path d="M9.5 13.5C9.5 14.3284 8.82843 15 8 15C7.17157 15 6.5 14.3284 6.5 13.5C6.5 12.6716 7.17157 12 8 12C8.82843 12 9.5 12.6716 9.5 13.5Z" fill="#fff"/>
+        </svg>
+        ScheduleSync Pro
+    </div>
+
+    <div id="instructionsModal" class="modal">
+        <div class="modal-content">
+            <span style="position:absolute; right:20px; cursor:pointer;" onclick="closeInstructions()">&times;</span>
+            <h2>How to Use</h2>
+            <p>1. Click to enable audio.</p>
+            <p>2. Use the Search bar to find tasks.</p>
+            <p>3. Click the 🔔 to get desktop alerts.</p>
+            <button onclick="closeInstructions()">Got it!</button>
+        </div>
+    </div>
+
+    <audio id="alarmAudio" preload="auto" loop></audio>
+
+    <div class="container">
+        <div class="sidebar">
+            <div style="text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px;">
+                <div id="countdownInfo">No events scheduled</div>
+                <div id="countdownDisplay">00:00:00</div>
+                <div style="font-size:0.8rem;">Daily Progress</div>
+                <div class="progress-container"><div id="progressBar"></div></div>
+                <div id="audioStatus" style="font-size:0.7rem; background:#ffeaa7; padding:4px; border-radius:10px;">⚠️ Click to enable audio</div>
+            </div>
+
+            <div style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.03); border-radius: 8px;">
+                <select id="soundSelect">
+                    <option value="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3">Classic</option>
+                    <option value="https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3">Electric</option>
+                </select>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.5" onchange="updateVolume()">
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="previewSound()" style="background:#636e72;">Test</button>
+                    <button onclick="stopSound()" style="background:#d63031;">Stop</button>
+                </div>
+            </div>
+
+            <div id="calendarDisplay" style="margin-top: 20px;"></div>
+            <button class="clear-btn" onclick="clearAllSchedules()">🗑️ Clear All</button>
+        </div>
+
+        <div class="main-content">
+            <div class="schedule-form">
+                <h2>➕ New Task</h2>
+                <input type="text" id="eventName" placeholder="Task name">
+                <div style="display: flex; gap: 10px;">
+                    <select id="eventCategory">
+                        <option value="general">General</option>
+                        <option value="work">Work</option>
+                        <option value="personal">Personal</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                    <select id="eventType" onchange="document.getElementById('routineOpts').style.display = this.value === 'routine' ? 'block' : 'none'">
+                        <option value="once">One-time</option>
+                        <option value="routine">Routine</option>
+                    </select>
+                </div>
+                <div id="routineOpts" style="display:none; margin: 10px 0;">
+                    <select id="routineFreq">
+                        <option value="daily">Every Day</option>
+                        <option value="1">Every Monday</option>
+                        <option value="2">Every Tuesday</option>
+                        <option value="3">Every Wednesday</option>
+                        <option value="4">Every Thursday</option>
+                        <option value="5">Every Friday</option>
+                        <option value="6">Every Saturday</option>
+                        <option value="0">Every Sunday</option>
+                    </select>
+                </div>
+                <input type="datetime-local" id="eventTime">
+                <button onclick="addSchedule()">Save Task</button>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <input type="text" id="searchInput" placeholder="🔍 Search tasks..." oninput="renderAll()">
+            </div>
+
+            <div class="filter-bar">
+                <button class="filter-btn active" onclick="setFilter('all', this)">All</button>
+                <button class="filter-btn" onclick="setFilter('urgent', this)">Urgent</button>
+                <button class="filter-btn" onclick="setFilter('work', this)">Work</button>
+                <button class="filter-btn" onclick="setFilter('personal', this)">Personal</button>
+            </div>
+
+            <ul id="reminderList"></ul>
+        </div>
+    </div>
+
+    <script>
+        const KEY = 'SS_PRO_V6';
+        let reminders = JSON.parse(localStorage.getItem(KEY)) || [];
+        let completedToday = parseInt(localStorage.getItem('completedToday')) || 0;
+        let currentFilter = 'all';
+        const player = document.getElementById('alarmAudio');
+        let audioUnlocked = false;
+
+        function toggleDarkMode() { document.body.classList.toggle('dark-mode'); }
+        function openInstructions() { document.getElementById('instructionsModal').style.display = 'block'; }
+        function closeInstructions() { document.getElementById('instructionsModal').style.display = 'none'; }
+        
+        function requestNotifPermission() { Notification.requestPermission(); }
+
+        function unlockAudio() {
+            if (audioUnlocked) return;
+            player.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==";
+            player.play().then(() => { player.pause(); audioUnlocked = true; document.getElementById('audioStatus').style.display = 'none'; });
+        }
+
+        function updateVolume() { player.volume = document.getElementById('volumeSlider').value; }
+        function previewSound() { unlockAudio(); player.src = document.getElementById('soundSelect').value; player.play(); }
+        function stopSound() { player.pause(); player.currentTime = 0; }
+
+        function save() { 
+            localStorage.setItem(KEY, JSON.stringify(reminders)); 
+            localStorage.setItem('completedToday', completedToday);
+            renderAll(); 
+        }
+
+        function addSchedule() {
+            const n = document.getElementById('eventName').value;
+            const t = document.getElementById('eventTime').value;
+            if (n && t) {
+                reminders.push({ id: Date.now(), name: n, time: t, category: document.getElementById('eventCategory').value, type: document.getElementById('eventType').value, frequency: document.getElementById('routineFreq').value });
+                save();
+                document.getElementById('eventName').value = '';
+            }
+        }
+
+        function deleteSchedule(id) { 
+            reminders = reminders.filter(r => r.id !== id); 
+            completedToday++;
+            save(); 
+        }
+        
+        function clearAllSchedules() { if (confirm("Clear all?")) { reminders = []; completedToday = 0; save(); } }
+
+        function setFilter(f, b) {
+            currentFilter = f;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            b.classList.add('active');
+            renderAll();
+        }
+
+        function renderAll() {
+            const list = document.getElementById('reminderList');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            list.innerHTML = '';
+            
+            const filtered = reminders.filter(r => {
+                const matchesFilter = currentFilter === 'all' || r.category === currentFilter;
+                const matchesSearch = r.name.toLowerCase().includes(search);
+                return matchesFilter && matchesSearch;
+            }).sort((a,b) => new Date(a.time) - new Date(b.time));
+
+            filtered.forEach(r => {
+                const li = document.createElement('li');
+                li.className = `reminder-item category-${r.category}`;
+                li.innerHTML = `<div><strong>${r.name}</strong><br><small>${new Date(r.time).toLocaleString()}</small></div><button class="delete-btn" onclick="deleteSchedule(${r.id})">Done</button>`;
+                list.appendChild(li);
+            });
+
+            const total = reminders.length + completedToday;
+            const progress = total === 0 ? 0 : (completedToday / total) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const cal = document.getElementById('calendarDisplay');
+            const now = new Date();
+            const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const eventDays = new Set(reminders.map(r => new Date(r.time).getDate()));
+            let h = `<h4>${now.toLocaleString('default', { month: 'long' })}</h4><div class="calendar-grid">`;
+            for(let i=1; i<=days; i++) {
+                const c = (i === now.getDate()) ? 'today' : (eventDays.has(i) ? 'has-event' : '');
+                h += `<div class="calendar-day ${c}">${i}</div>`;
+            }
+            cal.innerHTML = h + `</div>`;
+        }
+
+        function tick() {
+            const now = new Date().getTime();
+            reminders.forEach(r => {
+                const rt = new Date(r.time).getTime();
+                if (rt <= now && rt > now - 1000) {
+                    player.src = document.getElementById('soundSelect').value;
+                    player.play();
+                    if (Notification.permission === "granted") {
+                        new Notification("ScheduleSync Pro", { body: `Task: ${r.name}`, icon: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png" });
+                    }
+                    setTimeout(() => { alert(`ALARM: ${r.name}`); stopSound(); }, 500);
+                    if (r.type === 'routine') {
+                        let next = new Date(r.time);
+                        if (r.frequency === 'daily') {
+                            next.setDate(next.getDate() + 1);
+                        } else { // Handle weekly routines
+                            const currentDay = next.getDay(); // 0 for Sunday, 1 for Monday, etc.
+                            const targetDay = parseInt(r.frequency); // Target day of the week
+                            let daysToAdd = targetDay - currentDay;
+                            if (daysToAdd <= 0) { // If target day is today or in the past this week
+                                daysToAdd += 7; // Move to next week
+                            }
+                            next.setDate(next.getDate() + daysToAdd);
+                        }
+                        r.time = next.toISOString().slice(0, 16);
+                    } else { reminders = reminders.filter(i => i.id !== r.id); completedToday++; }
+                    save();
+                }
+            });
+            const u = reminders.filter(r => new Date(r.time).getTime() > now).sort((a,b) => new Date(a.time) - new Date(b.time))[0];
+            if (u) {
+                const d = new Date(u.time).getTime() - now;
+                document.getElementById('countdownDisplay').textContent = new Date(d).toISOString().substr(11, 8);
+                document.getElementById('countdownInfo').textContent = `Until: ${u.name}`;
+            } else {
+                document.getElementById('countdownDisplay').textContent = "00:00:00";
+                document.getElementById('countdownInfo').textContent = "No tasks";
+            }
+        }
+
+        setInterval(tick, 1000);
+        renderAll();
+    </script>
+</body>
+</html>
